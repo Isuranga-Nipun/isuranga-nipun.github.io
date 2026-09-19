@@ -1,5 +1,5 @@
 // =====================================================================
-// Isuranga Nipun Kumara — Portfolio interaction layer
+// Isuranga Nipun Kumara - Portfolio interaction layer
 // No dependencies. No build step. Safe to run as a static file.
 // =====================================================================
 
@@ -8,6 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initNav();
   initScrollSpy();
   initGalleryFilter();
+  initGallerySlider();
+  initLightbox();
+  initMatrixRain();
+  initBackgroundAudio();
   initYear();
 });
 
@@ -90,6 +94,147 @@ function initYear(){
 }
 
 /* ---------------------------------------------------------------------
+   Gallery slider: left/right controls that scroll the horizontal
+   filmstrip by roughly one "page" of items at a time.
+   ------------------------------------------------------------------- */
+function initGallerySlider(){
+  const track = document.querySelector('.gallery-track');
+  const prev = document.querySelector('.slide-prev');
+  const next = document.querySelector('.slide-next');
+  if (!track || !prev || !next) return;
+
+  const scrollByPage = (dir) => {
+    const amount = Math.max(track.clientWidth * 0.8, 240);
+    track.scrollBy({ left: dir * amount, behavior: 'smooth' });
+  };
+
+  prev.addEventListener('click', () => scrollByPage(-1));
+  next.addEventListener('click', () => scrollByPage(1));
+}
+
+/* ---------------------------------------------------------------------
+   Lightbox: click any gallery photo to see it full-size.
+   ------------------------------------------------------------------- */
+function initLightbox(){
+  const lightbox = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lightbox-img');
+  const lbCap = document.getElementById('lightbox-cap');
+  const closeBtn = lightbox ? lightbox.querySelector('.lightbox-close') : null;
+  if (!lightbox || !lbImg || !closeBtn) return;
+
+  const open = (imgEl) => {
+    lbImg.src = imgEl.src;
+    lbImg.alt = imgEl.alt || '';
+    const capEl = imgEl.parentElement ? imgEl.parentElement.querySelector('.cap') : null;
+    lbCap.textContent = capEl ? capEl.textContent : (imgEl.alt || '');
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  const close = () => {
+    lightbox.classList.remove('open');
+    lbImg.src = '';
+    document.body.style.overflow = '';
+  };
+
+  document.querySelectorAll('.gallery-item img').forEach(img => {
+    img.addEventListener('click', () => open(img));
+  });
+
+  closeBtn.addEventListener('click', close);
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && lightbox.classList.contains('open')) close();
+  });
+}
+
+/* ---------------------------------------------------------------------
+   Matrix digital-rain canvas backdrop, fixed behind all content.
+   ------------------------------------------------------------------- */
+function initMatrixRain(){
+  const canvas = document.getElementById('matrix-rain');
+  if (!canvas) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const ctx = canvas.getContext('2d');
+  const glyphs = 'アイウエオカキクケコサシスセソ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let cols, drops, fontSize = 16;
+
+  function resize(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    cols = Math.floor(canvas.width / fontSize);
+    drops = new Array(cols).fill(1);
+  }
+
+  function draw(){
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#39FF14';
+    ctx.font = fontSize + 'px monospace';
+    for (let i = 0; i < drops.length; i++){
+      const text = glyphs[Math.floor(Math.random() * glyphs.length)];
+      ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+      if (drops[i] * fontSize > canvas.height && Math.random() > 0.975){
+        drops[i] = 0;
+      }
+      drops[i]++;
+    }
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  setInterval(draw, 45);
+}
+
+/* ---------------------------------------------------------------------
+   Background soundtrack: attempts autoplay on load; if the browser
+   blocks it, starts on the first user interaction instead. A toggle
+   button always lets the visitor mute/unmute.
+   ------------------------------------------------------------------- */
+function initBackgroundAudio(){
+  const audio = document.getElementById('bg-audio');
+  const toggle = document.getElementById('audio-toggle');
+  if (!audio || !toggle) return;
+
+  audio.volume = 0.5;
+
+  const setIcon = (playing) => {
+    toggle.innerHTML = playing
+      ? '<i class="fa-solid fa-volume-high"></i>'
+      : '<i class="fa-solid fa-volume-xmark"></i>';
+    toggle.classList.toggle('muted', !playing);
+    toggle.setAttribute('aria-pressed', String(playing));
+  };
+
+  const tryPlay = () => {
+    audio.play().then(() => setIcon(true)).catch(() => {
+      setIcon(false);
+      const resume = () => {
+        audio.play().then(() => setIcon(true)).catch(() => {});
+        document.removeEventListener('click', resume);
+        document.removeEventListener('keydown', resume);
+      };
+      document.addEventListener('click', resume, { once: true });
+      document.addEventListener('keydown', resume, { once: true });
+    });
+  };
+
+  tryPlay();
+
+  toggle.addEventListener('click', () => {
+    if (audio.paused){
+      tryPlay();
+    } else {
+      audio.pause();
+      setIcon(false);
+    }
+  });
+}
+
+/* ---------------------------------------------------------------------
    Image fallback: if a photo hasn't been added to /images/ yet (or a
    filename doesn't match), swap it for a generated placeholder instead
    of showing a broken-image icon. Drop the real files into /images/
@@ -106,15 +251,15 @@ function placeholderSvg(label){
   const safe = label.length > 34 ? label.slice(0, 31) + '…' : label;
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="480" height="480">
-      <rect width="100%" height="100%" fill="#0D1219"/>
-      <rect x="10" y="10" width="460" height="460" fill="none" stroke="#1D2733" stroke-width="1"/>
-      <rect x="20" y="20" width="440" height="440" fill="none" stroke="#24343F" stroke-width="1" stroke-dasharray="4 6"/>
-      <g fill="none" stroke="#35D6D0" stroke-width="1.4">
+      <rect width="100%" height="100%" fill="#030602"/>
+      <rect x="10" y="10" width="460" height="460" fill="none" stroke="#123312" stroke-width="1"/>
+      <rect x="20" y="20" width="440" height="440" fill="none" stroke="#1F6B2E" stroke-width="1" stroke-dasharray="4 6"/>
+      <g fill="none" stroke="#39FF14" stroke-width="1.4">
         <path d="M240 150 L275 168 V206 C275 240 258 262 240 272 C222 262 205 240 205 206 V168 Z"/>
         <path d="M225 210 L237 222 L258 198" stroke-width="2"/>
       </g>
-      <text x="50%" y="320" fill="#8B98A9" font-family="IBM Plex Mono, monospace" font-size="13" text-anchor="middle">${escapeXml(safe)}</text>
-      <text x="50%" y="344" fill="#56626F" font-family="IBM Plex Mono, monospace" font-size="11" text-anchor="middle">awaiting upload — see /images/README</text>
+      <text x="50%" y="320" fill="#7FDB8C" font-family="IBM Plex Mono, monospace" font-size="13" text-anchor="middle">${escapeXml(safe)}</text>
+      <text x="50%" y="344" fill="#56626F" font-family="IBM Plex Mono, monospace" font-size="11" text-anchor="middle">image pending</text>
     </svg>`.trim();
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 }
